@@ -1,50 +1,41 @@
-from os import environ
-import re
-import json
+# server/app.py
+#!/usr/bin/env python3
 
-from app import app
+from flask import Flask, jsonify
+from flask_migrate import Migrate
+from datetime import datetime
+
+from models import db, Earthquake
+
+app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.json.compact = False
+
+migrate = Migrate(app, db)
+db.init_app(app)
 
 
-class TestApp:
-    '''Flask application in flask_app.py'''
+@app.route("/")
+def index():
+    body = {"message": "Flask SQLAlchemy Lab 1"}
+    return jsonify(body), 200
 
-    def test_earthquake_found_route(self):
-        '''has a resource available at "/earthquakes/<id>".'''
-        response = app.test_client().get('/earthquakes/1')
-        assert response.status_code == 200
 
-    def test_earthquake_not_found_route(self):
-        '''has a resource available at "/earthquakes/<id>".'''
-        response = app.test_client().get('/earthquakes/999')
-        assert response.status_code == 404
+# View to get a specific earthquake by ID
+@app.route("/earthquakes/<int:id>", methods=["GET"])
+def get_earthquake(id):
+    earthquake = Earthquake.query.get(id)
+    if earthquake is None:
+        return jsonify({"message": f"Earthquake {id} not found."}), 404
+    earthquake_data = {
+        "id": earthquake.id,
+        "location": earthquake.location,
+        "magnitude": earthquake.magnitude,
+        "year": earthquake.date.year,
+    }
+    return jsonify(earthquake_data), 200
 
-    def test_earthquakes_found_response(self):
-        '''displays json in earthquake route with keys for id, magnitude, location, year'''
 
-        response = app.test_client().get('/earthquakes/2')
-        # get the response body
-        response_body = response.data.decode()
-        # convert to JSON
-        response_json = json.loads(response_body)
-        # confirm JSON data
-        assert response_json["id"] == 2
-        assert response_json["magnitude"] == 9.2
-        assert response_json["location"] == "Alaska"
-        assert response_json["year"] == 1964
-
-        # confirm status
-        assert response.status_code == 200
-
-    def test_earthquakes_not_found_response(self):
-        '''displays appropriate message if id not found'''
-
-        response = app.test_client().get('/earthquakes/9999')
-        # get the response body
-        response_body = response.data.decode()
-        # convert to JSON
-        response_json = json.loads(response_body)
-        # confirm JSON data
-        assert response_json["message"] == "Earthquake 9999 not found."
-
-        # confirm status
-        assert response.status_code == 404
+if __name__ == "__main__":
+    app.run(port=5555, debug=True)
